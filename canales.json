@@ -1,0 +1,34 @@
+[
+  {
+    "nombre": "TV Pública",
+    "categoria": "Aire",
+    "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a5/TV_P%C3%BAblica_-_Logo_2021.svg/512px-TV_P%C3%BAblica_-_Logo_2021.svg.png",
+    "url": "https://cntlnk-main-edge-access.secure.footprint.net/entrypoint/c7_vivo01_dai_source-20001_all_1080p.m3u8",
+    "referer": "",
+    "ua": ""
+  },
+  {
+    "nombre": "TN (Todo Noticias)",
+    "categoria": "Noticias",
+    "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4f/TN_todo_noticias_logo.svg/512px-TN_todo_noticias_logo.svg.png",
+    "url": "https://live-01-02-tn.vodgc.net/TN24/index.m3u8",
+    "referer": "",
+    "ua": ""
+  },
+  {
+    "nombre": "C5N",
+    "categoria": "Noticias",
+    "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/40/C5N_logo.svg/512px-C5N_logo.svg.png",
+    "url": "https://live-01-01-c5n.vodgc.net/c5n/index.m3u8",
+    "referer": "",
+    "ua": ""
+  },
+  {
+    "nombre": "Crónica TV",
+    "categoria": "Noticias",
+    "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/26/Cronica_TV_logo.svg/512px-Cronica_TV_logo.svg.png",
+    "url": "https://live-01-01-cronica.vodgc.net/cronica/index.m3u8",
+    "referer": "",
+    "ua": ""
+  }
+]
