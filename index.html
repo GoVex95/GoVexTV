@@ -20,6 +20,7 @@
       --vlc: #f97316;
       --wvc: #0ea5e9;
       --poseidon: #8b5cf6;
+      --pelis24: #10b981;
     }
 
     * {
@@ -420,6 +421,11 @@
       background: rgba(139, 92, 246, 0.24);
     }
 
+    .btn-pelis24 {
+      border-color: rgba(16, 185, 129, 0.75);
+      background: rgba(16, 185, 129, 0.22);
+    }
+
     .btn-wvc {
       border-color: rgba(14, 165, 233, 0.7);
       background: rgba(14, 165, 233, 0.2);
@@ -578,14 +584,15 @@
       </div>
 
       <div class="tv-controls-box">
-        <div style="font-size:0.85rem; font-weight:700;">Fuentes disponibles:</div>
+        <div style="font-size:0.85rem; font-weight:700;">Fuentes disponibles (Web Video Caster):</div>
         <div class="actions-row">
-          <button id="btnPoseidonWvc" class="btn-poseidon" type="button">🎬 Abrir en PoseidonHD 2 (WVC)</button>
-          <button id="btnSendWvcSearch" class="btn-wvc" type="button">📺 Buscar en Google (WVC)</button>
-          <button id="btnPoseidonBrowser" type="button">🌐 PoseidonHD 2 en navegador</button>
+          <button id="btnPoseidonWvc" class="btn-poseidon" type="button">🎬 PoseidonHD 2 (WVC)</button>
+          <button id="btnPelis24Wvc" class="btn-pelis24" type="button">🎞️ Pelis24 (WVC)</button>
+          <button id="btnSendWvcSearch" class="btn-wvc" type="button">🔍 Google (WVC)</button>
+          <button id="btnCopyTitle" type="button">📋 Copiar título</button>
         </div>
-        <div style="font-size:0.78rem; color:var(--muted);">
-          Tip: Tocá "Abrir en PoseidonHD 2 (WVC)", elegí el servidor/episodio y dejá que Web Video Caster detecte el video para enviarlo a tu Android TV.
+        <div id="copyFeedback" style="font-size:0.78rem; color:var(--muted);">
+          Tip: Al tocar una fuente se copia el título automáticamente para pegarlo si el buscador interno del sitio lo pide.
         </div>
       </div>
     </div>
@@ -631,6 +638,7 @@
     const TMDB_IMG = "https://image.tmdb.org/t/p/w500";
     const URL_CANALES_JSON = "https://raw.githubusercontent.com/GoVex95/GoVexTV/main/canales.json";
     const POSEIDON_BASE = "https://www.poseidonhd2.co";
+    const PELIS24_BASE = "https://pelis24.study";
 
     let currentTab = "trending";
     let tvChannels = [];
@@ -656,6 +664,7 @@
     const seasonSelect = document.getElementById("seasonSelect");
     const episodeSelect = document.getElementById("episodeSelect");
     const episodeTitlePreview = document.getElementById("episodeTitlePreview");
+    const copyFeedback = document.getElementById("copyFeedback");
 
     const playerModal = document.getElementById("playerModal");
     const npTitle = document.getElementById("npTitle");
@@ -800,6 +809,7 @@
       detailOverview.textContent = "";
       detailBadges.innerHTML = "";
       seriesControls.style.display = "none";
+      copyFeedback.textContent = "Tip: Al tocar una fuente se copia el título automáticamente para pegarlo si el buscador interno del sitio lo pide.";
 
       try {
         const info = await fetchTmdb(`/${type}/${id}`);
@@ -869,27 +879,31 @@
       episodeTitlePreview.textContent = selOpt ? selOpt.textContent : "";
     }
 
+    function copySelectedTitle() {
+      if (!selectedMedia) return;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(selectedMedia.title).catch(() => {});
+      }
+      copyFeedback.textContent = `Copiado: "${selectedMedia.title}"`;
+    }
+
     function openInWebVideoCaster(targetUrl, label) {
+      copySelectedTitle();
       const withoutScheme = targetUrl.replace(/^https?:\/\//i, "");
       const title = encodeURIComponent(label || "GoVexTV");
       window.location.href = `intent://${withoutScheme}#Intent;scheme=https;package=com.instantbits.cast.webvideo;S.title=${title};end`;
     }
 
-    function openPoseidonSource(useWvc) {
+    function openSiteSource(baseUrl) {
       if (!selectedMedia) return;
-      let query = selectedMedia.title;
       let label = selectedMedia.title;
       if (selectedMedia.type === "tv") {
         const s = Number(seasonSelect.value || 1);
         const e = Number(episodeSelect.value || 1);
         label += ` ${s}x${e}`;
       }
-      const targetUrl = `${POSEIDON_BASE}/?s=${encodeURIComponent(query)}`;
-      if (useWvc) {
-        openInWebVideoCaster(targetUrl, label);
-      } else {
-        window.open(targetUrl, "_blank", "noopener");
-      }
+      const targetUrl = `${baseUrl}/?s=${encodeURIComponent(selectedMedia.title)}&post_type=post`;
+      openInWebVideoCaster(targetUrl, label);
     }
 
     function openGoogleWvcSearch() {
@@ -1023,9 +1037,10 @@
     });
     episodeSelect.addEventListener("change", updateEpisodePreview);
 
-    document.getElementById("btnPoseidonWvc").addEventListener("click", () => openPoseidonSource(true));
+    document.getElementById("btnPoseidonWvc").addEventListener("click", () => openSiteSource(POSEIDON_BASE));
+    document.getElementById("btnPelis24Wvc").addEventListener("click", () => openSiteSource(PELIS24_BASE));
     document.getElementById("btnSendWvcSearch").addEventListener("click", openGoogleWvcSearch);
-    document.getElementById("btnPoseidonBrowser").addEventListener("click", () => openPoseidonSource(false));
+    document.getElementById("btnCopyTitle").addEventListener("click", copySelectedTitle);
     document.getElementById("btnCloseDetail").addEventListener("click", closeDetailModal);
 
     document.getElementById("btnClosePlayer").addEventListener("click", closeLivePlayer);
