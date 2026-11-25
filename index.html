@@ -19,6 +19,7 @@
       --danger: #ef4444;
       --vlc: #f97316;
       --wvc: #0ea5e9;
+      --poseidon: #8b5cf6;
     }
 
     * {
@@ -414,6 +415,11 @@
       gap: 10px;
     }
 
+    .btn-poseidon {
+      border-color: rgba(139, 92, 246, 0.75);
+      background: rgba(139, 92, 246, 0.24);
+    }
+
     .btn-wvc {
       border-color: rgba(14, 165, 233, 0.7);
       background: rgba(14, 165, 233, 0.2);
@@ -572,13 +578,14 @@
       </div>
 
       <div class="tv-controls-box">
-        <div style="font-size:0.85rem; font-weight:700;">Buscar y reproducir fuente:</div>
+        <div style="font-size:0.85rem; font-weight:700;">Fuentes disponibles:</div>
         <div class="actions-row">
-          <button id="btnSendWvcSearch" class="btn-wvc" type="button">📺 Abrir búsqueda en Web Video Caster</button>
-          <button id="btnWebSearch" type="button">🌐 Buscar fuente en navegador</button>
+          <button id="btnPoseidonWvc" class="btn-poseidon" type="button">🎬 Abrir en PoseidonHD 2 (WVC)</button>
+          <button id="btnSendWvcSearch" class="btn-wvc" type="button">📺 Buscar en Google (WVC)</button>
+          <button id="btnPoseidonBrowser" type="button">🌐 PoseidonHD 2 en navegador</button>
         </div>
         <div style="font-size:0.78rem; color:var(--muted);">
-          Tip: En Web Video Caster se abre la búsqueda lista para detectar el video y enviarlo directo a tu Android TV.
+          Tip: Tocá "Abrir en PoseidonHD 2 (WVC)", elegí el servidor/episodio y dejá que Web Video Caster detecte el video para enviarlo a tu Android TV.
         </div>
       </div>
     </div>
@@ -623,6 +630,7 @@
     const TMDB_BASE = "https://api.themoviedb.org/3";
     const TMDB_IMG = "https://image.tmdb.org/t/p/w500";
     const URL_CANALES_JSON = "https://raw.githubusercontent.com/GoVex95/GoVexTV/main/canales.json";
+    const POSEIDON_BASE = "https://www.poseidonhd2.co";
 
     let currentTab = "trending";
     let tvChannels = [];
@@ -830,7 +838,7 @@
           }
         }
 
-        document.getElementById("btnSendWvcSearch").focus();
+        document.getElementById("btnPoseidonWvc").focus();
       } catch (err) {
         detailTitle.textContent = "Error al cargar detalles";
       }
@@ -861,29 +869,39 @@
       episodeTitlePreview.textContent = selOpt ? selOpt.textContent : "";
     }
 
-    function buildQueryForMedia() {
-      if (!selectedMedia) return "";
+    function openInWebVideoCaster(targetUrl, label) {
+      const withoutScheme = targetUrl.replace(/^https?:\/\//i, "");
+      const title = encodeURIComponent(label || "GoVexTV");
+      window.location.href = `intent://${withoutScheme}#Intent;scheme=https;package=com.instantbits.cast.webvideo;S.title=${title};end`;
+    }
+
+    function openPoseidonSource(useWvc) {
+      if (!selectedMedia) return;
+      let query = selectedMedia.title;
+      let label = selectedMedia.title;
+      if (selectedMedia.type === "tv") {
+        const s = Number(seasonSelect.value || 1);
+        const e = Number(episodeSelect.value || 1);
+        label += ` ${s}x${e}`;
+      }
+      const targetUrl = `${POSEIDON_BASE}/?s=${encodeURIComponent(query)}`;
+      if (useWvc) {
+        openInWebVideoCaster(targetUrl, label);
+      } else {
+        window.open(targetUrl, "_blank", "noopener");
+      }
+    }
+
+    function openGoogleWvcSearch() {
+      if (!selectedMedia) return;
+      let query = `${selectedMedia.title} ${selectedMedia.year} ver online latino`;
       if (selectedMedia.type === "tv") {
         const s = String(seasonSelect.value || 1).padStart(2, "0");
         const e = String(episodeSelect.value || 1).padStart(2, "0");
-        return `${selectedMedia.title} S${s}E${e} ver online latino`;
+        query = `${selectedMedia.title} S${s}E${e} ver online latino`;
       }
-      return `${selectedMedia.title} ${selectedMedia.year} ver online latino`;
-    }
-
-    function launchExternalSearch(useWvc) {
-      const query = buildQueryForMedia();
-      if (!query) return;
       const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
-
-      if (useWvc) {
-        const withoutScheme = searchUrl.replace(/^https?:\/\//i, "");
-        const title = encodeURIComponent(selectedMedia.title);
-        const wvcIntent = `intent://${withoutScheme}#Intent;scheme=https;package=com.instantbits.cast.webvideo;S.title=${title};end`;
-        window.location.href = wvcIntent;
-      } else {
-        window.open(searchUrl, "_blank", "noopener");
-      }
+      openInWebVideoCaster(searchUrl, selectedMedia.title);
     }
 
     function closeDetailModal() {
@@ -1005,8 +1023,9 @@
     });
     episodeSelect.addEventListener("change", updateEpisodePreview);
 
-    document.getElementById("btnSendWvcSearch").addEventListener("click", () => launchExternalSearch(true));
-    document.getElementById("btnWebSearch").addEventListener("click", () => launchExternalSearch(false));
+    document.getElementById("btnPoseidonWvc").addEventListener("click", () => openPoseidonSource(true));
+    document.getElementById("btnSendWvcSearch").addEventListener("click", openGoogleWvcSearch);
+    document.getElementById("btnPoseidonBrowser").addEventListener("click", () => openPoseidonSource(false));
     document.getElementById("btnCloseDetail").addEventListener("click", closeDetailModal);
 
     document.getElementById("btnClosePlayer").addEventListener("click", closeLivePlayer);
