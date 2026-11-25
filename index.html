@@ -162,6 +162,7 @@
       justify-content: space-between;
       margin-bottom: 14px;
       gap: 10px;
+      flex-wrap: wrap;
     }
 
     .section-title {
@@ -313,7 +314,6 @@
       color: var(--accent);
     }
 
-    /* Modales */
     .modal-backdrop {
       position: fixed;
       inset: 0;
@@ -429,7 +429,6 @@
       background: rgba(239, 68, 68, 0.18);
     }
 
-    /* Reproductor TV en Vivo */
     .player-modal {
       position: fixed;
       inset: 0;
@@ -547,7 +546,6 @@
     <div id="emptyState" class="empty-state" style="display:none;"></div>
   </main>
 
-  <!-- Modal Detalle Película / Serie -->
   <div id="detailModal" class="modal-backdrop" aria-hidden="true">
     <div class="detail-box">
       <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -586,11 +584,461 @@
     </div>
   </div>
 
-  <!-- Modal Reproductor TV en Vivo -->
   <div id="playerModal" class="player-modal" aria-hidden="true">
     <div class="player-overlay-top">
       <div>
         <div id="npTitle" style="font-size:1.1rem; font-weight:800;">Canal</div>
         <div id="npSub" style="font-size:0.8rem; color:var(--accent);">Conectando...</div>
       </div>
-      <button id="btnClosePlayer" class="
+      <button id="btnClosePlayer" class="btn-danger" type="button">✕ Volver</button>
+    </div>
+
+    <div class="video-wrap">
+      <video id="videoEl" playsinline autoplay></video>
+      <div id="playerMessage" class="player-message">
+        <div id="playerMessageText">No se pudo cargar la transmisión en el navegador.</div>
+        <div class="actions-row" style="justify-content:center;">
+          <button id="btnRetry" type="button">Reintentar</button>
+          <button id="btnMsgVlc" class="btn-vlc" type="button">▶ VLC</button>
+          <button id="btnMsgWvc" class="btn-wvc" type="button">📺 Web Video Caster</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="player-overlay-bottom">
+      <div class="actions-row">
+        <button id="btnPrevCh" type="button">▲ Anterior</button>
+        <button id="btnNextCh" type="button">▼ Siguiente</button>
+        <button id="btnMute" type="button">🔊 Sonido</button>
+      </div>
+      <div class="actions-row">
+        <button id="btnOpenVlc" class="btn-vlc" type="button">▶ VLC</button>
+        <button id="btnOpenWvc" class="btn-wvc" type="button">📺 Web Video Caster</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const TMDB_API_KEY = "b0af7a0ab0b6a62f8724aea8a648c550";
+    const TMDB_BASE = "https://api.themoviedb.org/3";
+    const TMDB_IMG = "https://image.tmdb.org/t/p/w500";
+    const URL_CANALES_JSON = "https://raw.githubusercontent.com/GoVex95/GoVexTV/main/canales.json";
+
+    let currentTab = "trending";
+    let tvChannels = [];
+    let currentChannelIdx = -1;
+    let hlsInstance = null;
+    let selectedMedia = null;
+    let lastFocusedEl = null;
+
+    const contentGrid = document.getElementById("contentGrid");
+    const sectionTitle = document.getElementById("sectionTitle");
+    const statusPill = document.getElementById("statusPill");
+    const emptyState = document.getElementById("emptyState");
+    const searchInput = document.getElementById("searchInput");
+    const btnSearch = document.getElementById("btnSearch");
+
+    const detailModal = document.getElementById("detailModal");
+    const detailTypeBadge = document.getElementById("detailTypeBadge");
+    const detailPoster = document.getElementById("detailPoster");
+    const detailTitle = document.getElementById("detailTitle");
+    const detailBadges = document.getElementById("detailBadges");
+    const detailOverview = document.getElementById("detailOverview");
+    const seriesControls = document.getElementById("seriesControls");
+    const seasonSelect = document.getElementById("seasonSelect");
+    const episodeSelect = document.getElementById("episodeSelect");
+    const episodeTitlePreview = document.getElementById("episodeTitlePreview");
+
+    const playerModal = document.getElementById("playerModal");
+    const npTitle = document.getElementById("npTitle");
+    const npSub = document.getElementById("npSub");
+    const videoEl = document.getElementById("videoEl");
+    const playerMessage = document.getElementById("playerMessage");
+
+    async function fetchTmdb(endpoint, extraParams = "") {
+      const sep = endpoint.includes("?") ? "&" : "?";
+      const url = `${TMDB_BASE}${endpoint}${sep}api_key=${TMDB_API_KEY}&language=es-MX${extraParams}`;
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 8000);
+
+      try {
+        const res = await fetch(url, { signal: controller.signal });
+        if (!res.ok) throw new Error("TMDB HTTP " + res.status);
+        return await res.json();
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+
+    async function loadTab(tab) {
+      currentTab = tab;
+      document.querySelectorAll(".tab-btn").forEach(b => {
+        b.classList.toggle("active", b.dataset.tab === tab);
+      });
+
+      emptyState.style.display = "none";
+      contentGrid.innerHTML = "";
+
+      if (tab === "livetv") {
+        contentGrid.className = "grid-tv";
+        sectionTitle.textContent = "Canales en Vivo";
+        await loadLiveTv();
+        return;
+      }
+
+      contentGrid.className = "grid-vod";
+      statusPill.textContent = "Cargando catálogo...";
+
+      try {
+        let data;
+        if (tab === "trending") {
+          sectionTitle.textContent = "Tendencias de la semana";
+          data = await fetchTmdb("/trending/all/week");
+        } else if (tab === "movies") {
+          sectionTitle.textContent = "Películas populares";
+          data = await fetchTmdb("/movie/popular");
+        } else if (tab === "series") {
+          sectionTitle.textContent = "Series populares";
+          data = await fetchTmdb("/tv/popular");
+        }
+
+        const items = (data.results || []).filter(i => i.media_type !== "person");
+        renderVodGrid(items, tab === "series" ? "tv" : (tab === "movies" ? "movie" : null));
+        statusPill.textContent = `TMDB (${items.length})`;
+      } catch (err) {
+        statusPill.textContent = "Sin respuesta TMDB";
+        emptyState.style.display = "block";
+        emptyState.textContent = "No se pudo cargar TMDB a tiempo. Tocá otra pestaña o recargá.";
+      }
+    }
+
+    async function searchCatalog() {
+      const q = searchInput.value.trim();
+      if (!q) return;
+
+      document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+      contentGrid.className = "grid-vod";
+      sectionTitle.textContent = `Resultados para "${q}"`;
+      statusPill.textContent = "Buscando...";
+      emptyState.style.display = "none";
+      contentGrid.innerHTML = "";
+
+      try {
+        const data = await fetchTmdb("/search/multi", `&query=${encodeURIComponent(q)}&include_adult=false`);
+        const items = (data.results || []).filter(i => i.media_type === "movie" || i.media_type === "tv");
+        renderVodGrid(items, null);
+        statusPill.textContent = `${items.length} encontrados`;
+      } catch (err) {
+        statusPill.textContent = "Error búsqueda";
+        emptyState.style.display = "block";
+        emptyState.textContent = "No se pudo completar la búsqueda en TMDB.";
+      }
+    }
+
+    function renderVodGrid(items, forcedType) {
+      contentGrid.innerHTML = "";
+      if (!items || items.length === 0) {
+        emptyState.style.display = "block";
+        emptyState.textContent = "No se encontraron títulos.";
+        return;
+      }
+
+      items.forEach(item => {
+        const type = forcedType || item.media_type || (item.first_air_date ? "tv" : "movie");
+        const title = item.title || item.name || "Sin título";
+        const date = item.release_date || item.first_air_date || "";
+        const year = date ? date.slice(0, 4) : "";
+        const rating = item.vote_average ? item.vote_average.toFixed(1) : "—";
+        const poster = item.poster_path ? `${TMDB_IMG}${item.poster_path}` : "";
+
+        const card = document.createElement("div");
+        card.className = "media-card";
+        card.tabIndex = 0;
+        card.setAttribute("role", "button");
+
+        card.innerHTML = `
+          <div class="poster-wrap">
+            <span class="type-tag">${type === "tv" ? "Serie" : "Película"}</span>
+            <span class="rating-tag">★ ${rating}</span>
+            ${poster ? `<img src="${poster}" alt="${title}" loading="lazy" />` : `<span class="logo-fallback">🎬</span>`}
+          </div>
+          <div class="card-info">
+            <div class="card-title">${title}</div>
+            <div class="card-sub">${year || "HD"}</div>
+          </div>
+        `;
+
+        const openHandler = () => {
+          lastFocusedEl = card;
+          openDetailModal(item.id, type);
+        };
+
+        card.addEventListener("click", openHandler);
+        card.addEventListener("keydown", e => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            openHandler();
+          }
+        });
+
+        contentGrid.appendChild(card);
+      });
+    }
+
+    async function openDetailModal(id, type) {
+      detailModal.classList.add("open");
+      detailModal.setAttribute("aria-hidden", "false");
+      detailTitle.textContent = "Cargando información...";
+      detailOverview.textContent = "";
+      detailBadges.innerHTML = "";
+      seriesControls.style.display = "none";
+
+      try {
+        const info = await fetchTmdb(`/${type}/${id}`);
+        const title = info.title || info.name || "Sin título";
+        const year = (info.release_date || info.first_air_date || "").slice(0, 4);
+        const rating = info.vote_average ? `★ ${info.vote_average.toFixed(1)}` : "";
+        const genres = (info.genres || []).map(g => g.name).slice(0, 3).join(" · ");
+
+        selectedMedia = {
+          id,
+          type,
+          title,
+          originalTitle: info.original_title || info.original_name || title,
+          year,
+          seasons: info.seasons || []
+        };
+
+        detailTypeBadge.textContent = type === "tv" ? "Serie" : "Película";
+        detailTitle.textContent = title;
+        detailPoster.src = info.poster_path ? `${TMDB_IMG}${info.poster_path}` : "";
+        detailBadges.textContent = [year, rating, genres].filter(Boolean).join("  |  ");
+        detailOverview.textContent = info.overview || "Sin descripción disponible en español.";
+
+        if (type === "tv") {
+          const validSeasons = (info.seasons || []).filter(s => s.season_number > 0);
+          if (validSeasons.length > 0) {
+            seriesControls.style.display = "flex";
+            seasonSelect.innerHTML = "";
+            validSeasons.forEach(s => {
+              const opt = document.createElement("option");
+              opt.value = s.season_number;
+              opt.textContent = `Temporada ${s.season_number} (${s.episode_count} eps)`;
+              seasonSelect.appendChild(opt);
+            });
+            await loadEpisodesForSeason(id, validSeasons[0].season_number);
+          }
+        }
+
+        document.getElementById("btnSendWvcSearch").focus();
+      } catch (err) {
+        detailTitle.textContent = "Error al cargar detalles";
+      }
+    }
+
+    async function loadEpisodesForSeason(tvId, seasonNum) {
+      episodeSelect.innerHTML = `<option>Cargando...</option>`;
+      episodeTitlePreview.textContent = "";
+      try {
+        const sData = await fetchTmdb(`/tv/${tvId}/season/${seasonNum}`);
+        const eps = sData.episodes || [];
+        episodeSelect.innerHTML = "";
+        eps.forEach(ep => {
+          const opt = document.createElement("option");
+          opt.value = ep.episode_number;
+          opt.dataset.name = ep.name || "";
+          opt.textContent = `Episodio ${ep.episode_number}: ${ep.name || "Capítulo " + ep.episode_number}`;
+          episodeSelect.appendChild(opt);
+        });
+        updateEpisodePreview();
+      } catch (e) {
+        episodeSelect.innerHTML = `<option value="1">Episodio 1</option>`;
+      }
+    }
+
+    function updateEpisodePreview() {
+      const selOpt = episodeSelect.options[episodeSelect.selectedIndex];
+      episodeTitlePreview.textContent = selOpt ? selOpt.textContent : "";
+    }
+
+    function buildQueryForMedia() {
+      if (!selectedMedia) return "";
+      if (selectedMedia.type === "tv") {
+        const s = String(seasonSelect.value || 1).padStart(2, "0");
+        const e = String(episodeSelect.value || 1).padStart(2, "0");
+        return `${selectedMedia.title} S${s}E${e} ver online latino`;
+      }
+      return `${selectedMedia.title} ${selectedMedia.year} ver online latino`;
+    }
+
+    function launchExternalSearch(useWvc) {
+      const query = buildQueryForMedia();
+      if (!query) return;
+      const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+
+      if (useWvc) {
+        const withoutScheme = searchUrl.replace(/^https?:\/\//i, "");
+        const title = encodeURIComponent(selectedMedia.title);
+        const wvcIntent = `intent://${withoutScheme}#Intent;scheme=https;package=com.instantbits.cast.webvideo;S.title=${title};end`;
+        window.location.href = wvcIntent;
+      } else {
+        window.open(searchUrl, "_blank", "noopener");
+      }
+    }
+
+    function closeDetailModal() {
+      detailModal.classList.remove("open");
+      detailModal.setAttribute("aria-hidden", "true");
+      if (lastFocusedEl) lastFocusedEl.focus();
+    }
+
+    async function loadLiveTv() {
+      statusPill.textContent = "Cargando canales...";
+      try {
+        const res = await fetch(`${URL_CANALES_JSON}?t=${Date.now()}`, { cache: "no-store" });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        tvChannels = await res.json();
+        statusPill.textContent = `${tvChannels.length} canales`;
+      } catch (e) {
+        statusPill.textContent = "Sin lista";
+        tvChannels = [];
+      }
+
+      contentGrid.innerHTML = "";
+      if (tvChannels.length === 0) {
+        emptyState.style.display = "block";
+        emptyState.textContent = "No hay canales cargados en canales.json.";
+        return;
+      }
+
+      tvChannels.forEach((ch, idx) => {
+        const card = document.createElement("div");
+        card.className = "media-card";
+        card.tabIndex = 0;
+        card.innerHTML = `
+          <div class="tv-card-inner">
+            <div class="logo-box">
+              ${ch.logo ? `<img src="${ch.logo}" alt="${ch.nombre}" onerror="this.style.display='none'" />` : `<span class="logo-fallback">TV</span>`}
+            </div>
+            <div class="card-title">${ch.nombre}</div>
+            <div class="card-sub">${ch.categoria || "En vivo"}</div>
+          </div>
+        `;
+        card.addEventListener("click", () => openLivePlayer(idx));
+        contentGrid.appendChild(card);
+      });
+    }
+
+    function openLivePlayer(idx) {
+      if (idx < 0 || idx >= tvChannels.length) return;
+      currentChannelIdx = idx;
+      const ch = tvChannels[idx];
+      playerModal.classList.add("open");
+      playerModal.setAttribute("aria-hidden", "false");
+      npTitle.textContent = ch.nombre;
+      npSub.textContent = "Conectando señal...";
+      playerMessage.classList.remove("visible");
+
+      if (hlsInstance) {
+        hlsInstance.destroy();
+        hlsInstance = null;
+      }
+
+      if (window.Hls && Hls.isSupported() && ch.url) {
+        hlsInstance = new Hls({ enableWorker: true, lowLatencyMode: true });
+        hlsInstance.loadSource(ch.url);
+        hlsInstance.attachMedia(videoEl);
+        hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
+          npSub.textContent = `● En vivo · ${ch.categoria || "TV"}`;
+          videoEl.play().catch(() => {
+            videoEl.muted = true;
+            videoEl.play().catch(() => {});
+          });
+        });
+        hlsInstance.on(Hls.Events.ERROR, (ev, data) => {
+          if (data.fatal) {
+            npSub.textContent = "Señal fuera de línea";
+            playerMessage.classList.add("visible");
+          }
+        });
+      } else {
+        playerMessage.classList.add("visible");
+      }
+    }
+
+    function openLiveInApp(app) {
+      const ch = tvChannels[currentChannelIdx];
+      if (!ch || !ch.url) return;
+      const streamUrl = ch.url.trim();
+      const withoutScheme = streamUrl.replace(/^https?:\/\//i, "");
+      const scheme = streamUrl.toLowerCase().startsWith("http://") ? "http" : "https";
+      const title = encodeURIComponent(ch.nombre || "GoVexTV");
+      const pkg = app === "vlc" ? "org.videolan.vlc" : "com.instantbits.cast.webvideo";
+      let extras = `S.title=${title};`;
+      if (ch.referer && app === "wvc") extras += `S.referer=${encodeURIComponent(ch.referer)};`;
+      if (ch.ua) extras += `S.user_agent=${encodeURIComponent(ch.ua)};`;
+      window.location.href = `intent://${withoutScheme}#Intent;scheme=${scheme};package=${pkg};type=video/*;${extras}end`;
+    }
+
+    function closeLivePlayer() {
+      if (hlsInstance) {
+        hlsInstance.destroy();
+        hlsInstance = null;
+      }
+      videoEl.pause();
+      videoEl.removeAttribute("src");
+      playerModal.classList.remove("open");
+      playerModal.setAttribute("aria-hidden", "true");
+    }
+
+    document.querySelectorAll(".tab-btn").forEach(btn => {
+      btn.addEventListener("click", () => loadTab(btn.dataset.tab));
+    });
+
+    btnSearch.addEventListener("click", searchCatalog);
+    searchInput.addEventListener("keydown", e => {
+      if (e.key === "Enter") searchCatalog();
+    });
+
+    seasonSelect.addEventListener("change", () => {
+      if (selectedMedia) loadEpisodesForSeason(selectedMedia.id, seasonSelect.value);
+    });
+    episodeSelect.addEventListener("change", updateEpisodePreview);
+
+    document.getElementById("btnSendWvcSearch").addEventListener("click", () => launchExternalSearch(true));
+    document.getElementById("btnWebSearch").addEventListener("click", () => launchExternalSearch(false));
+    document.getElementById("btnCloseDetail").addEventListener("click", closeDetailModal);
+
+    document.getElementById("btnClosePlayer").addEventListener("click", closeLivePlayer);
+    document.getElementById("btnRetry").addEventListener("click", () => openLivePlayer(currentChannelIdx));
+    document.getElementById("btnPrevCh").addEventListener("click", () => {
+      openLivePlayer((currentChannelIdx - 1 + tvChannels.length) % tvChannels.length);
+    });
+    document.getElementById("btnNextCh").addEventListener("click", () => {
+      openLivePlayer((currentChannelIdx + 1) % tvChannels.length);
+    });
+    document.getElementById("btnMute").addEventListener("click", () => {
+      videoEl.muted = !videoEl.muted;
+      document.getElementById("btnMute").textContent = videoEl.muted ? "🔇 Silenciado" : "🔊 Sonido";
+    });
+    document.getElementById("btnOpenVlc").addEventListener("click", () => openLiveInApp("vlc"));
+    document.getElementById("btnOpenWvc").addEventListener("click", () => openLiveInApp("wvc"));
+    document.getElementById("btnMsgVlc").addEventListener("click", () => openLiveInApp("vlc"));
+    document.getElementById("btnMsgWvc").addEventListener("click", () => openLiveInApp("wvc"));
+
+    document.addEventListener("keydown", e => {
+      if (e.key === "Escape" || e.key === "Backspace" || e.key === "BrowserBack") {
+        if (playerModal.classList.contains("open")) {
+          e.preventDefault();
+          closeLivePlayer();
+        } else if (detailModal.classList.contains("open")) {
+          e.preventDefault();
+          closeDetailModal();
+        }
+      }
+    });
+
+    loadTab("trending");
+  </script>
+</body>
+</html>
