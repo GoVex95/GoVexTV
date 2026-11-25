@@ -636,7 +636,7 @@
     const TMDB_API_KEY = "b0af7a0ab0b6a62f8724aea8a648c550";
     const TMDB_BASE = "https://api.themoviedb.org/3";
     const TMDB_IMG = "https://image.tmdb.org/t/p/w500";
-    const URL_CANALES_JSON = "https://raw.githubusercontent.com/GoVex95/GoVexTV/main/canales.json";
+    const URL_CANALES_JSON = "./canales.json";
     const POSEIDON_BASE = "https://www.poseidonhd2.co";
     const PELIS24_BASE = "https://pelis24.study";
 
@@ -924,17 +924,96 @@
       if (lastFocusedEl) lastFocusedEl.focus();
     }
 
-    async function loadLiveTv() {
-      statusPill.textContent = "Cargando canales...";
-      try {
-        const res = await fetch(`${URL_CANALES_JSON}?t=${Date.now()}`, { cache: "no-store" });
-        if (!res.ok) throw new Error("HTTP " + res.status);
-        tvChannels = await res.json();
-        statusPill.textContent = `${tvChannels.length} canales`;
-      } catch (e) {
-        statusPill.textContent = "Sin lista";
-        tvChannels = [];
+ async function loadLiveTv() {
+  statusPill.textContent = "Conectando con la lista...";
+  emptyState.style.display = "none";
+  contentGrid.innerHTML = "";
+  tvChannels = [];
+
+  try {
+    const response = await fetch(
+      ${URL_CANALES_JSON}?v=${Date.now()},
+      { cache: "no-store" }
+    );
+
+    if (!response.ok) {
+      throw new Error(HTTP ${response.status});
+    }
+
+    const data = await response.json();
+
+    if (!Array.isArray(data)) {
+      throw new Error("El JSON no contiene una lista");
+    }
+
+    tvChannels = data.filter(ch =>
+      ch &&
+      typeof ch.nombre === "string" &&
+      typeof ch.url === "string" &&
+      /^https?:\/\//i.test(ch.url)
+    );
+
+    if (!tvChannels.length) {
+      throw new Error("No hay canales válidos");
+    }
+
+    statusPill.textContent =
+      ${tvChannels.length} canales cargados;
+
+    tvChannels.forEach((ch, idx) => {
+      const card = document.createElement("div");
+      card.className = "media-card";
+      card.tabIndex = 0;
+      card.setAttribute("role", "button");
+
+      const inner = document.createElement("div");
+      inner.className = "tv-card-inner";
+
+      const logoBox = document.createElement("div");
+      logoBox.className = "logo-box";
+
+      if (ch.logo) {
+        const img = document.createElement("img");
+        img.src = ch.logo;
+        img.alt = ch.nombre;
+        img.onerror = () => img.remove();
+        logoBox.appendChild(img);
+      } else {
+        logoBox.textContent = "TV";
       }
+
+      const name = document.createElement("div");
+      name.className = "card-title";
+      name.textContent = ch.nombre;
+
+      const category = document.createElement("div");
+      category.className = "card-sub";
+      category.textContent = ch.categoria || "En vivo";
+
+      inner.append(logoBox, name, category);
+      card.appendChild(inner);
+
+      card.addEventListener("click", () => openLivePlayer(idx));
+
+      card.addEventListener("keydown", e => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          openLivePlayer(idx);
+        }
+      });
+
+      contentGrid.appendChild(card);
+    });
+
+  } catch (error) {
+    console.error("Error cargando canales:", error);
+
+    statusPill.textContent = "Error en lista";
+    emptyState.style.display = "block";
+    emptyState.textContent =
+      No se pudo cargar canales.json: ${error.message};
+  }
+} 
 
       contentGrid.innerHTML = "";
       if (tvChannels.length === 0) {
@@ -962,19 +1041,123 @@
     }
 
     function openLivePlayer(idx) {
-      if (idx < 0 || idx >= tvChannels.length) return;
-      currentChannelIdx = idx;
-      const ch = tvChannels[idx];
-      playerModal.classList.add("open");
-      playerModal.setAttribute("aria-hidden", "false");
-      npTitle.textContent = ch.nombre;
-      npSub.textContent = "Conectando señal...";
-      playerMessage.classList.remove("visible");
+  if (idx < 0 || idx >= tvChannels.length) return;
 
-      if (hlsInstance) {
-        hlsInstance.destroy();
+  currentChannelIdx = idx;
+  const ch = tvChannels[idx];
+
+  // Destruir el reproductor anterior
+  if (hlsInstance) {
+    hlsInstance.destroy();
+    hlsInstance = null;
+  }
+
+  videoEl.pause();
+  videoEl.removeAttribute("src");
+  videoEl.load();
+
+  playerModal.classList.add("open");
+  playerModal.setAttribute("aria-hidden", "false");
+
+  npTitle.textContent = ch.nombre;
+  npSub.textContent = "Preparando transmisión...";
+  playerMessage.classList.remove("visible");
+
+  function showError(message) {
+    npSub.textContent = "Error de reproducción";
+    document.getElementById("playerMessageText").textContent = message;
+    playerMessage.classList.add("visible");
+  }
+
+  let url;
+
+  try {
+    const parsed = new URL(ch.url);
+
+    if (!["https:", "http:"].includes(parsed.protocol)) {
+      throw new Error("Protocolo inválido");
+    }
+
+    url = parsed.href;
+  } catch (error) {
+    showError("La dirección del canal no es válida.");
+    return;
+  }
+
+  const isHls = /\.m3u8($|[?#])/i.test(url);
+  const isMp4 = /\.(mp4|m4v)($|[?#])/i.test(url);
+
+  videoEl.onerror = () => {
+    showError(
+      "El navegador no pudo reproducir el contenido. Revisá la señal, CORS y el formato."
+    );
+  };
+
+  // Intentar HLS.js
+  if (isHls && window.Hls && Hls.isSupported()) {
+
+    const player = new Hls({
+      enableWorker: true,
+      lowLatencyMode: true,
+      maxBufferLength: 30
+    });
+
+    hlsInstance = player;
+
+    player.on(Hls.Events.ERROR, (event, data) => {
+      if (hlsInstance !== player || !data.fatal) return;
+
+      console.error("Error HLS:", data);
+
+      if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+        npSub.textContent = "Error de red";
+        playerMessage.classList.add("visible");
+        document.getElementById("playerMessageText").textContent =
+          "No se pudo acceder al servidor de video.";
+      } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+        npSub.textContent = "Recuperando video...";
+        player.recoverMediaError();
+      } else {
+        showError("Error fatal de reproducción HLS.");
+        player.destroy();
         hlsInstance = null;
       }
+    });
+
+    player.on(Hls.Events.MANIFEST_PARSED, () => {
+      if (hlsInstance !== player) return;
+
+      npSub.textContent = "Transmisión disponible";
+
+      videoEl.play().catch(() => {
+        npSub.textContent = "Tocá reproducir para iniciar";
+      });
+    });
+
+    player.loadSource(url);
+    player.attachMedia(videoEl);
+    return;
+  }
+
+  // HLS nativo
+  if (isHls && videoEl.canPlayType(
+    "application/vnd.apple.mpegurl"
+  )) {
+    videoEl.src = url;
+  }
+  // MP4
+  else if (isMp4) {
+    videoEl.src = url;
+  }
+  else {
+    showError("Formato no compatible con este reproductor.");
+    return;
+  }
+
+  videoEl.play().catch(() => {
+    npSub.textContent = "Tocá reproducir para comenzar";
+  });
+}
 
       if (window.Hls && Hls.isSupported() && ch.url) {
         hlsInstance = new Hls({ enableWorker: true, lowLatencyMode: true });
