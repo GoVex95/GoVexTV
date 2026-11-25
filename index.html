@@ -4,20 +4,21 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <meta name="theme-color" content="#0b0f17" />
-  <title>TVArg MicroApp</title>
+  <title>GoVexTV</title>
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.15/dist/hls.min.js"></script>
   <style>
     :root {
-      --bg: #0b0f17;
-      --surface: #131a26;
-      --surface-hover: #1b2536;
-      --border: #243044;
+      --bg: #090d14;
+      --surface: #121824;
+      --surface-hover: #1b2538;
+      --border: #232f45;
       --text: #f3f6fc;
       --muted: #93a1b8;
       --accent: #38bdf8;
-      --accent-glow: rgba(56, 189, 248, 0.35);
+      --accent-glow: rgba(56, 189, 248, 0.38);
       --danger: #ef4444;
-      --ok: #22c55e;
+      --vlc: #f97316;
+      --wvc: #0ea5e9;
     }
 
     * {
@@ -38,53 +39,69 @@
     header {
       position: sticky;
       top: 0;
-      z-index: 20;
-      background: rgba(11, 15, 23, 0.94);
-      backdrop-filter: blur(8px);
+      z-index: 30;
+      background: rgba(9, 13, 20, 0.95);
+      backdrop-filter: blur(10px);
       border-bottom: 1px solid var(--border);
-      padding: 14px 18px;
+      padding: 12px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .header-top {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 12px;
+      gap: 10px;
       flex-wrap: wrap;
     }
 
     .brand {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
     }
 
     .brand h1 {
-      font-size: 1.25rem;
+      font-size: 1.3rem;
       font-weight: 800;
       letter-spacing: 0.4px;
     }
 
     .badge {
       background: var(--accent);
-      color: #06131f;
-      font-size: 0.72rem;
+      color: #05131f;
+      font-size: 0.7rem;
       font-weight: 800;
-      padding: 2px 8px;
+      padding: 2px 7px;
       border-radius: 6px;
       text-transform: uppercase;
     }
 
-    .top-actions {
+    .search-box {
       display: flex;
       align-items: center;
       gap: 8px;
+      flex: 1;
+      max-width: 440px;
+      min-width: 200px;
     }
 
-    .status-pill {
-      font-size: 0.78rem;
-      color: var(--muted);
+    input[type="text"], select {
       background: var(--surface);
-      border: 1px solid var(--border);
-      padding: 6px 10px;
-      border-radius: 999px;
+      color: var(--text);
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      padding: 8px 12px;
+      font-size: 0.9rem;
+      width: 100%;
+    }
+
+    input[type="text"]:focus, select:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
     }
 
     button {
@@ -92,8 +109,8 @@
       color: var(--text);
       border: 2px solid var(--border);
       border-radius: 10px;
-      padding: 9px 14px;
-      font-size: 0.9rem;
+      padding: 8px 13px;
+      font-size: 0.88rem;
       font-weight: 600;
       cursor: pointer;
       transition: transform 0.12s ease, border-color 0.12s ease, background 0.12s ease;
@@ -101,8 +118,8 @@
 
     button:hover,
     button:focus-visible,
-    .channel-card:hover,
-    .channel-card:focus-visible {
+    .media-card:hover,
+    .media-card:focus-visible {
       outline: none;
       border-color: var(--accent);
       background: var(--surface-hover);
@@ -110,54 +127,158 @@
       transform: scale(1.03);
     }
 
-    .categories {
+    .nav-tabs {
       display: flex;
-      gap: 10px;
-      padding: 14px 18px 6px;
+      gap: 8px;
       overflow-x: auto;
       scrollbar-width: none;
     }
 
-    .categories::-webkit-scrollbar {
+    .nav-tabs::-webkit-scrollbar {
       display: none;
     }
 
-    .cat-btn {
+    .tab-btn {
       white-space: nowrap;
       border-radius: 999px;
-      padding: 8px 16px;
-      font-size: 0.88rem;
+      padding: 7px 15px;
+      font-size: 0.86rem;
     }
 
-    .cat-btn.active {
+    .tab-btn.active {
       background: var(--accent);
-      color: #06131f;
+      color: #05131f;
       border-color: var(--accent);
       font-weight: 800;
     }
 
     main {
-      padding: 14px 18px 40px;
+      padding: 16px 16px 48px;
     }
 
-    .grid {
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+      gap: 10px;
+    }
+
+    .section-title {
+      font-size: 1.05rem;
+      font-weight: 800;
+      color: var(--text);
+    }
+
+    .status-pill {
+      font-size: 0.76rem;
+      color: var(--muted);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 5px 10px;
+      border-radius: 999px;
+    }
+
+    .grid-vod {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(135px, 1fr));
+      gap: 14px;
+    }
+
+    .grid-tv {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
       gap: 14px;
     }
 
     @media (min-width: 900px) {
-      .grid {
+      .grid-vod {
+        grid-template-columns: repeat(auto-fill, minmax(175px, 1fr));
+        gap: 18px;
+      }
+      .grid-tv {
         grid-template-columns: repeat(auto-fill, minmax(195px, 1fr));
         gap: 18px;
       }
-      .brand h1 { font-size: 1.5rem; }
     }
 
-    .channel-card {
+    .media-card {
       background: var(--surface);
       border: 2px solid var(--border);
       border-radius: 14px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      cursor: pointer;
+      transition: transform 0.12s ease, border-color 0.12s ease, background 0.12s ease;
+    }
+
+    .poster-wrap {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 2 / 3;
+      background: #0e1420;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    .poster-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .rating-tag {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: rgba(9, 13, 20, 0.85);
+      color: #fbbf24;
+      font-size: 0.74rem;
+      font-weight: 800;
+      padding: 3px 7px;
+      border-radius: 6px;
+      border: 1px solid rgba(251, 191, 36, 0.35);
+    }
+
+    .type-tag {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      background: rgba(56, 189, 248, 0.9);
+      color: #05131f;
+      font-size: 0.68rem;
+      font-weight: 800;
+      padding: 2px 6px;
+      border-radius: 5px;
+      text-transform: uppercase;
+    }
+
+    .card-info {
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .card-title {
+      font-size: 0.88rem;
+      font-weight: 700;
+      line-height: 1.25;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .card-sub {
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    .tv-card-inner {
       padding: 16px 12px;
       display: flex;
       flex-direction: column;
@@ -165,16 +286,14 @@
       justify-content: center;
       text-align: center;
       gap: 10px;
-      cursor: pointer;
       min-height: 138px;
-      transition: transform 0.12s ease, border-color 0.12s ease, background 0.12s ease;
     }
 
     .logo-box {
       width: 64px;
       height: 64px;
       border-radius: 12px;
-      background: #0b0f17;
+      background: #090d14;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -189,26 +308,132 @@
     }
 
     .logo-fallback {
-      font-size: 1.3rem;
+      font-size: 1.25rem;
       font-weight: 800;
       color: var(--accent);
     }
 
-    .channel-name {
-      font-size: 0.95rem;
-      font-weight: 700;
-      line-height: 1.25;
-    }
-
-    .channel-cat {
-      font-size: 0.74rem;
-      color: var(--muted);
-    }
-
-    .player-modal {
+    /* Modales */
+    .modal-backdrop {
       position: fixed;
       inset: 0;
       z-index: 50;
+      background: rgba(5, 8, 14, 0.92);
+      backdrop-filter: blur(8px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      overflow-y: auto;
+    }
+
+    .modal-backdrop.open {
+      display: flex;
+    }
+
+    .detail-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      width: 100%;
+      max-width: 760px;
+      max-height: 92vh;
+      overflow-y: auto;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .detail-top {
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+    }
+
+    .detail-poster {
+      width: 115px;
+      border-radius: 12px;
+      aspect-ratio: 2 / 3;
+      object-fit: cover;
+      background: #090d14;
+      flex-shrink: 0;
+    }
+
+    @media (min-width: 640px) {
+      .detail-poster { width: 155px; }
+    }
+
+    .detail-meta {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .detail-title {
+      font-size: 1.3rem;
+      font-weight: 800;
+      line-height: 1.2;
+    }
+
+    .detail-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      font-size: 0.8rem;
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    .detail-overview {
+      font-size: 0.88rem;
+      line-height: 1.45;
+      color: var(--muted);
+    }
+
+    .tv-controls-box {
+      background: #0c111c;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .selectors-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .actions-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .btn-wvc {
+      border-color: rgba(14, 165, 233, 0.7);
+      background: rgba(14, 165, 233, 0.2);
+    }
+
+    .btn-vlc {
+      border-color: rgba(249, 115, 22, 0.7);
+      background: rgba(249, 115, 22, 0.2);
+    }
+
+    .btn-danger {
+      border-color: rgba(239, 68, 68, 0.65);
+      background: rgba(239, 68, 68, 0.18);
+    }
+
+    /* Reproductor TV en Vivo */
+    .player-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 60;
       background: #000;
       display: none;
       flex-direction: column;
@@ -223,14 +448,13 @@
       top: 0;
       left: 0;
       right: 0;
-      z-index: 60;
+      z-index: 70;
       padding: 16px 20px;
-      background: linear-gradient(to bottom, rgba(0,0,0,0.88), transparent);
+      background: linear-gradient(to bottom, rgba(0,0,0,0.9), transparent);
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 12px;
-      transition: opacity 0.25s ease;
     }
 
     .player-overlay-bottom {
@@ -238,7 +462,7 @@
       bottom: 0;
       left: 0;
       right: 0;
-      z-index: 60;
+      z-index: 70;
       padding: 18px 20px;
       background: linear-gradient(to top, rgba(0,0,0,0.92), transparent);
       display: flex;
@@ -246,23 +470,6 @@
       justify-content: space-between;
       gap: 10px;
       flex-wrap: wrap;
-      transition: opacity 0.25s ease;
-    }
-
-    .hud-hidden {
-      opacity: 0;
-      pointer-events: none;
-    }
-
-    .now-playing-title {
-      font-size: 1.15rem;
-      font-weight: 800;
-    }
-
-    .now-playing-sub {
-      font-size: 0.82rem;
-      color: var(--accent);
-      margin-top: 2px;
     }
 
     .video-wrap {
@@ -273,20 +480,18 @@
       align-items: center;
       justify-content: center;
       position: relative;
-      background: #000;
     }
 
     video {
       width: 100%;
       height: 100%;
       object-fit: contain;
-      background: #000;
     }
 
     .player-message {
       position: absolute;
-      z-index: 55;
-      background: rgba(19, 26, 38, 0.94);
+      z-index: 65;
+      background: rgba(18, 24, 36, 0.95);
       border: 1px solid var(--border);
       padding: 18px 22px;
       border-radius: 14px;
@@ -302,27 +507,6 @@
       display: flex;
     }
 
-    .btn-danger {
-      border-color: rgba(239, 68, 68, 0.55);
-      background: rgba(239, 68, 68, 0.16);
-    }
-
-    .btn-vlc {
-      border-color: rgba(249, 115, 22, 0.65);
-      background: rgba(249, 115, 22, 0.18);
-    }
-
-    .btn-wvc {
-      border-color: rgba(56, 189, 248, 0.65);
-      background: rgba(56, 189, 248, 0.18);
-    }
-
-    .controls-group {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-
     .empty-state {
       text-align: center;
       color: var(--muted);
@@ -333,516 +517,80 @@
 </head>
 <body>
   <header>
-    <div class="brand">
-      <h1>TVArg</h1>
-      <span class="badge">En vivo</span>
+    <div class="header-top">
+      <div class="brand">
+        <h1>GoVexTV</h1>
+        <span class="badge">Stream</span>
+      </div>
+
+      <div class="search-box">
+        <input id="searchInput" type="text" placeholder="Buscar película o serie..." aria-label="Buscar" />
+        <button id="btnSearch" type="button">🔍</button>
+      </div>
     </div>
-    <div class="top-actions">
-      <span id="statusPill" class="status-pill">Iniciando...</span>
-      <button id="btnRefresh" type="button" tabindex="0">↻ Actualizar</button>
-    </div>
+
+    <nav class="nav-tabs" aria-label="Secciones">
+      <button class="tab-btn active" data-tab="trending" type="button">🔥 Tendencias</button>
+      <button class="tab-btn" data-tab="movies" type="button">🎬 Películas</button>
+      <button class="tab-btn" data-tab="series" type="button">📺 Series</button>
+      <button class="tab-btn" data-tab="livetv" type="button">📡 TV en Vivo</button>
+    </nav>
   </header>
 
-  <nav id="categoriesBar" class="categories" aria-label="Categorías"></nav>
-
   <main>
-    <div id="channelsGrid" class="grid" role="list"></div>
+    <div class="section-header">
+      <h2 id="sectionTitle" class="section-title">Tendencias de la semana</h2>
+      <span id="statusPill" class="status-pill">Conectando TMDB...</span>
+    </div>
+
+    <div id="contentGrid" class="grid-vod"></div>
     <div id="emptyState" class="empty-state" style="display:none;"></div>
   </main>
 
-  <div id="playerModal" class="player-modal" aria-hidden="true">
-    <div id="hudTop" class="player-overlay-top">
-      <div>
-        <div id="npTitle" class="now-playing-title">Canal</div>
-        <div id="npSub" class="now-playing-sub">Conectando señal...</div>
+  <!-- Modal Detalle Película / Serie -->
+  <div id="detailModal" class="modal-backdrop" aria-hidden="true">
+    <div class="detail-box">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <span id="detailTypeBadge" class="badge">Película</span>
+        <button id="btnCloseDetail" class="btn-danger" type="button">✕ Cerrar</button>
       </div>
-      <button id="btnClosePlayer" class="btn-danger" type="button" tabindex="0">✕ Volver</button>
-    </div>
 
-    <div class="video-wrap" id="videoWrap">
-      <video id="videoEl" playsinline autoplay></video>
-      <div id="playerMessage" class="player-message">
-        <div id="playerMessageText">No se pudo cargar la transmisión.</div>
-        <div class="controls-group" style="justify-content:center;">
-          <button id="btnRetry" type="button" tabindex="0">Reintentar</button>
-          <button id="btnMsgVlc" class="btn-vlc" type="button" tabindex="0">▶ Abrir en VLC</button>
-          <button id="btnMsgWvc" class="btn-wvc" type="button" tabindex="0">📺 Web Video Caster</button>
+      <div class="detail-top">
+        <img id="detailPoster" class="detail-poster" src="" alt="Poster" />
+        <div class="detail-meta">
+          <h3 id="detailTitle" class="detail-title">Título</h3>
+          <div id="detailBadges" class="detail-badges"></div>
+          <p id="detailOverview" class="detail-overview"></p>
         </div>
       </div>
-    </div>
 
-    <div id="hudBottom" class="player-overlay-bottom">
-      <div class="controls-group">
-        <button id="btnPrevCh" type="button" tabindex="0">▲ Anterior</button>
-        <button id="btnNextCh" type="button" tabindex="0">▼ Siguiente</button>
-        <button id="btnMute" type="button" tabindex="0">🔊 Sonido</button>
+      <div id="seriesControls" class="tv-controls-box" style="display:none;">
+        <div style="font-size:0.85rem; font-weight:700; color:var(--accent);">Seleccionar episodio:</div>
+        <div class="selectors-row">
+          <select id="seasonSelect" aria-label="Temporada"></select>
+          <select id="episodeSelect" aria-label="Episodio"></select>
+        </div>
+        <div id="episodeTitlePreview" style="font-size:0.82rem; color:var(--muted);"></div>
       </div>
-      <div class="controls-group">
-        <button id="btnOpenVlc" class="btn-vlc" type="button" tabindex="0">▶ VLC</button>
-        <button id="btnOpenWvc" class="btn-wvc" type="button" tabindex="0">📺 Web Video Caster</button>
+
+      <div class="tv-controls-box">
+        <div style="font-size:0.85rem; font-weight:700;">Buscar y reproducir fuente:</div>
+        <div class="actions-row">
+          <button id="btnSendWvcSearch" class="btn-wvc" type="button">📺 Abrir búsqueda en Web Video Caster</button>
+          <button id="btnWebSearch" type="button">🌐 Buscar fuente en navegador</button>
+        </div>
+        <div style="font-size:0.78rem; color:var(--muted);">
+          Tip: En Web Video Caster se abre la búsqueda lista para detectar el video y enviarlo directo a tu Android TV.
+        </div>
       </div>
     </div>
   </div>
 
-  <script>
-    const URL_CANALES_JSON = "https://raw.githubusercontent.com/GoVex95/GoVexTV/main/canales.json";
-    const PROXY_WORKER_URL = "";
-
-    const FALLBACK_CHANNELS = [
-      {
-        nombre: "TV Pública",
-        categoria: "Aire",
-        logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a5/TV_P%C3%BAblica_-_Logo_2021.svg/512px-TV_P%C3%BAblica_-_Logo_2021.svg.png",
-        url: "https://cntlnk-main-edge-access.secure.footprint.net/entrypoint/c7_vivo01_dai_source-20001_all_1080p.m3u8",
-        referer: "",
-        ua: ""
-      },
-      {
-        nombre: "TN (Todo Noticias)",
-        categoria: "Noticias",
-        logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4f/TN_todo_noticias_logo.svg/512px-TN_todo_noticias_logo.svg.png",
-        url: "https://live-01-02-tn.vodgc.net/TN24/index.m3u8",
-        referer: "",
-        ua: ""
-      },
-      {
-        nombre: "C5N",
-        categoria: "Noticias",
-        logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/40/C5N_logo.svg/512px-C5N_logo.svg.png",
-        url: "https://live-01-01-c5n.vodgc.net/c5n/index.m3u8",
-        referer: "",
-        ua: ""
-      },
-      {
-        nombre: "Crónica TV",
-        categoria: "Noticias",
-        logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/26/Cronica_TV_logo.svg/512px-Cronica_TV_logo.svg.png",
-        url: "https://live-01-01-cronica.vodgc.net/cronica/index.m3u8",
-        referer: "",
-        ua: ""
-      }
-    ];
-
-    const CACHE_KEY = "tvarg_channels_cache_v1";
-
-    function safeStorageGet(key) {
-      try {
-        return localStorage.getItem(key);
-      } catch (e) {
-        return null;
-      }
-    }
-
-    function safeStorageSet(key, val) {
-      try {
-        localStorage.setItem(key, val);
-      } catch (e) {}
-    }
-
-    let allChannels = [];
-    let filteredChannels = [];
-    let activeCategory = "Todos";
-    let currentChannelIndex = -1;
-    let lastFocusedCard = null;
-    let hlsInstance = null;
-    let retryCount = 0;
-    let hudTimer = null;
-
-    const statusPill = document.getElementById("statusPill");
-    const categoriesBar = document.getElementById("categoriesBar");
-    const channelsGrid = document.getElementById("channelsGrid");
-    const emptyState = document.getElementById("emptyState");
-    const btnRefresh = document.getElementById("btnRefresh");
-
-    const playerModal = document.getElementById("playerModal");
-    const hudTop = document.getElementById("hudTop");
-    const hudBottom = document.getElementById("hudBottom");
-    const npTitle = document.getElementById("npTitle");
-    const npSub = document.getElementById("npSub");
-    const videoEl = document.getElementById("videoEl");
-    const playerMessage = document.getElementById("playerMessage");
-    const playerMessageText = document.getElementById("playerMessageText");
-    const btnClosePlayer = document.getElementById("btnClosePlayer");
-    const btnRetry = document.getElementById("btnRetry");
-    const btnPrevCh = document.getElementById("btnPrevCh");
-    const btnNextCh = document.getElementById("btnNextCh");
-    const btnMute = document.getElementById("btnMute");
-    const btnOpenVlc = document.getElementById("btnOpenVlc");
-    const btnOpenWvc = document.getElementById("btnOpenWvc");
-    const btnMsgVlc = document.getElementById("btnMsgVlc");
-    const btnMsgWvc = document.getElementById("btnMsgWvc");
-
-    function buildPlayableUrl(channel) {
-      const rawUrl = (channel.url || "").trim();
-      const needsProxy = Boolean((channel.referer && channel.referer.trim()) || (channel.ua && channel.ua.trim()));
-      if (needsProxy && PROXY_WORKER_URL && PROXY_WORKER_URL.startsWith("http")) {
-        const base = PROXY_WORKER_URL.replace(/\/+$/, "");
-        const params = new URLSearchParams();
-        params.set("url", rawUrl);
-        if (channel.referer) params.set("referer", channel.referer.trim());
-        if (channel.ua) params.set("ua", channel.ua.trim());
-        return `${base}?${params.toString()}`;
-      }
-      return rawUrl;
-    }
-
-    function openInExternalPlayer(app) {
-      const channel = filteredChannels[currentChannelIndex];
-      if (!channel || !channel.url) return;
-
-      const streamUrl = channel.url.trim();
-      const title = encodeURIComponent(channel.nombre || "TVArg");
-      const urlWithoutScheme = streamUrl.replace(/^https?:\/\//i, "");
-      const scheme = streamUrl.toLowerCase().startsWith("http://") ? "http" : "https";
-
-      if (app === "vlc") {
-        let extras = `S.title=${title};`;
-        if (channel.ua && channel.ua.trim()) {
-          extras += `S.user_agent=${encodeURIComponent(channel.ua.trim())};`;
-        }
-        const vlcIntent = `intent://${urlWithoutScheme}#Intent;scheme=${scheme};package=org.videolan.vlc;type=video/*;${extras}end`;
-        window.location.href = vlcIntent;
-      } else if (app === "wvc") {
-        let extras = `S.title=${title};`;
-        if (channel.referer && channel.referer.trim()) {
-          extras += `S.referer=${encodeURIComponent(channel.referer.trim())};`;
-        }
-        if (channel.ua && channel.ua.trim()) {
-          extras += `S.user_agent=${encodeURIComponent(channel.ua.trim())};`;
-        }
-        const wvcIntent = `intent://${urlWithoutScheme}#Intent;scheme=${scheme};package=com.instantbits.cast.webvideo;type=video/*;${extras}end`;
-        window.location.href = wvcIntent;
-      }
-    }
-
-    async function loadChannels(forceNetwork = false) {
-      statusPill.textContent = "Cargando lista...";
-
-      const cachedRaw = safeStorageGet(CACHE_KEY);
-      if (cachedRaw && !forceNetwork) {
-        try {
-          const parsed = JSON.parse(cachedRaw);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            allChannels = parsed;
-            renderCategories();
-            renderGrid();
-            statusPill.textContent = `Caché (${allChannels.length})`;
-          }
-        } catch (e) {}
-      }
-
-      try {
-        const res = await fetch(`${URL_CANALES_JSON}?t=${Date.now()}`, { cache: "no-store" });
-        if (!res.ok) throw new Error("HTTP " + res.status);
-        const data = await res.json();
-        if (!Array.isArray(data) || data.length === 0) throw new Error("JSON vacío");
-
-        allChannels = data;
-        safeStorageSet(CACHE_KEY, JSON.stringify(data));
-        statusPill.textContent = `Online (${allChannels.length})`;
-      } catch (err) {
-        if (allChannels.length === 0) {
-          allChannels = FALLBACK_CHANNELS;
-          statusPill.textContent = `Respaldo (${allChannels.length})`;
-        } else {
-          statusPill.textContent = `Sin red · Caché (${allChannels.length})`;
-        }
-      }
-
-      renderCategories();
-      renderGrid();
-    }
-
-    function renderCategories() {
-      const cats = ["Todos", ...new Set(allChannels.map(c => (c.categoria || "General").trim()))];
-      if (!cats.includes(activeCategory)) activeCategory = "Todos";
-
-      categoriesBar.innerHTML = "";
-      cats.forEach(cat => {
-        const btn = document.createElement("button");
-        btn.type = "button";
-        btn.className = "cat-btn" + (cat === activeCategory ? " active" : "");
-        btn.textContent = cat;
-        btn.tabIndex = 0;
-        btn.addEventListener("click", () => {
-          activeCategory = cat;
-          renderCategories();
-          renderGrid();
-        });
-        categoriesBar.appendChild(btn);
-      });
-    }
-
-    function renderGrid() {
-      filteredChannels = activeCategory === "Todos"
-        ? allChannels
-        : allChannels.filter(c => (c.categoria || "General").trim() === activeCategory);
-
-      channelsGrid.innerHTML = "";
-
-      if (filteredChannels.length === 0) {
-        emptyState.style.display = "block";
-        emptyState.textContent = "No hay canales en esta categoría.";
-        return;
-      }
-
-      emptyState.style.display = "none";
-
-      filteredChannels.forEach((ch, idx) => {
-        const card = document.createElement("div");
-        card.className = "channel-card";
-        card.tabIndex = 0;
-        card.setAttribute("role", "button");
-        card.setAttribute("aria-label", `Ver ${ch.nombre}`);
-
-        const logoBox = document.createElement("div");
-        logoBox.className = "logo-box";
-
-        if (ch.logo) {
-          const img = document.createElement("img");
-          img.src = ch.logo;
-          img.alt = ch.nombre;
-          img.loading = "lazy";
-          img.onerror = () => {
-            logoBox.innerHTML = `<span class="logo-fallback">${(ch.nombre || "TV").slice(0, 2).toUpperCase()}</span>`;
-          };
-          logoBox.appendChild(img);
-        } else {
-          logoBox.innerHTML = `<span class="logo-fallback">${(ch.nombre || "TV").slice(0, 2).toUpperCase()}</span>`;
-        }
-
-        const nameEl = document.createElement("div");
-        nameEl.className = "channel-name";
-        nameEl.textContent = ch.nombre || "Sin nombre";
-
-        const catEl = document.createElement("div");
-        catEl.className = "channel-cat";
-        catEl.textContent = ch.categoria || "En vivo";
-
-        card.appendChild(logoBox);
-        card.appendChild(nameEl);
-        card.appendChild(catEl);
-
-        const openHandler = () => {
-          lastFocusedCard = card;
-          openPlayer(idx);
-        };
-
-        card.addEventListener("click", openHandler);
-        card.addEventListener("keydown", (e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            openHandler();
-          }
-        });
-
-        channelsGrid.appendChild(card);
-      });
-
-      if (!playerModal.classList.contains("open")) {
-        const firstCard = channelsGrid.querySelector(".channel-card");
-        if (firstCard) firstCard.focus();
-      }
-    }
-
-    function destroyHls() {
-      if (hlsInstance) {
-        try {
-          hlsInstance.destroy();
-        } catch (e) {}
-        hlsInstance = null;
-      }
-      videoEl.pause();
-      videoEl.removeAttribute("src");
-      videoEl.load();
-    }
-
-    function showHud() {
-      hudTop.classList.remove("hud-hidden");
-      hudBottom.classList.remove("hud-hidden");
-      clearTimeout(hudTimer);
-      hudTimer = setTimeout(() => {
-        if (playerModal.classList.contains("open") && !playerMessage.classList.contains("visible")) {
-          hudTop.classList.add("hud-hidden");
-          hudBottom.classList.add("hud-hidden");
-        }
-      }, 4500);
-    }
-
-    function showError(msg) {
-      playerMessageText.textContent = msg;
-      playerMessage.classList.add("visible");
-      npSub.textContent = "Señal fuera de línea";
-      showHud();
-      btnMsgVlc.focus();
-    }
-
-    function hideError() {
-      playerMessage.classList.remove("visible");
-    }
-
-    function openPlayer(index) {
-      if (index < 0 || index >= filteredChannels.length) return;
-      currentChannelIndex = index;
-      retryCount = 0;
-
-      const channel = filteredChannels[currentChannelIndex];
-      playerModal.classList.add("open");
-      playerModal.setAttribute("aria-hidden", "false");
-      npTitle.textContent = channel.nombre;
-      npSub.textContent = "Conectando señal...";
-      hideError();
-      showHud();
-      btnClosePlayer.focus();
-
-      startStream(channel);
-    }
-
-    function startStream(channel) {
-      destroyHls();
-      hideError();
-
-      const streamUrl = buildPlayableUrl(channel);
-      if (!streamUrl) {
-        showError("Este canal no tiene una URL configurada.");
-        return;
-      }
-
-      const usingProxy = streamUrl !== (channel.url || "").trim();
-      npSub.textContent = usingProxy ? "Conectando vía Proxy..." : "Conectando directo...";
-
-      if (window.Hls && Hls.isSupported()) {
-        hlsInstance = new Hls({
-          enableWorker: true,
-          lowLatencyMode: true,
-          maxBufferLength: 20,
-          manifestLoadingTimeOut: 12000,
-          levelLoadingTimeOut: 12000
-        });
-
-        hlsInstance.loadSource(streamUrl);
-        hlsInstance.attachMedia(videoEl);
-
-        hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
-          npSub.textContent = `● En vivo · ${channel.categoria || "TV"}`;
-          videoEl.play().catch(() => {
-            videoEl.muted = true;
-            updateMuteBtn();
-            videoEl.play().catch(() => {});
-          });
-        });
-
-        hlsInstance.on(Hls.Events.ERROR, (event, data) => {
-          if (data.fatal) {
-            if (retryCount < 2) {
-              retryCount++;
-              npSub.textContent = `Reintentando (${retryCount}/2)...`;
-              setTimeout(() => startStream(channel), 1500);
-            } else {
-              destroyHls();
-              showError(`No se pudo abrir "${channel.nombre}" en el navegador. Probá abrirlo en VLC o Web Video Caster.`);
-            }
-          }
-        });
-      } else if (videoEl.canPlayType("application/vnd.apple.mpegurl")) {
-        videoEl.src = streamUrl;
-        videoEl.onloadedmetadata = () => {
-          npSub.textContent = `● En vivo · ${channel.categoria || "TV"}`;
-          videoEl.play().catch(() => {});
-        };
-        videoEl.onerror = () => {
-          showError(`Error al reproducir "${channel.nombre}". Probá abrirlo en VLC o Web Video Caster.`);
-        };
-      } else {
-        showError("Tu navegador no soporta reproducción HLS.");
-      }
-    }
-
-    function closePlayer() {
-      destroyHls();
-      hideError();
-      clearTimeout(hudTimer);
-      playerModal.classList.remove("open");
-      playerModal.setAttribute("aria-hidden", "true");
-      if (lastFocusedCard) {
-        lastFocusedCard.focus();
-      }
-    }
-
-    function zapChannel(delta) {
-      if (filteredChannels.length === 0) return;
-      const nextIdx = (currentChannelIndex + delta + filteredChannels.length) % filteredChannels.length;
-      openPlayer(nextIdx);
-    }
-
-    function updateMuteBtn() {
-      btnMute.textContent = videoEl.muted ? "🔇 Silenciado" : "🔊 Sonido";
-    }
-
-    btnRefresh.addEventListener("click", () => loadChannels(true));
-    btnClosePlayer.addEventListener("click", closePlayer);
-    btnRetry.addEventListener("click", () => {
-      retryCount = 0;
-      startStream(filteredChannels[currentChannelIndex]);
-    });
-    btnPrevCh.addEventListener("click", () => zapChannel(-1));
-    btnNextCh.addEventListener("click", () => zapChannel(1));
-    btnMute.addEventListener("click", () => {
-      videoEl.muted = !videoEl.muted;
-      updateMuteBtn();
-      showHud();
-    });
-
-    btnOpenVlc.addEventListener("click", () => openInExternalPlayer("vlc"));
-    btnOpenWvc.addEventListener("click", () => openInExternalPlayer("wvc"));
-    btnMsgVlc.addEventListener("click", () => openInExternalPlayer("vlc"));
-    btnMsgWvc.addEventListener("click", () => openInExternalPlayer("wvc"));
-
-    playerModal.addEventListener("mousemove", showHud);
-    playerModal.addEventListener("click", showHud);
-
-    document.addEventListener("keydown", (e) => {
-      const isPlayerOpen = playerModal.classList.contains("open");
-
-      if (isPlayerOpen) {
-        showHud();
-        if (e.key === "Escape" || e.key === "Backspace" || e.key === "BrowserBack") {
-          e.preventDefault();
-          closePlayer();
-        } else if (e.key === "ArrowUp" || e.key === "ChannelUp") {
-          e.preventDefault();
-          zapChannel(-1);
-        } else if (e.key === "ArrowDown" || e.key === "ChannelDown") {
-          e.preventDefault();
-          zapChannel(1);
-        } else if (e.key === "Enter" || e.key === " ") {
-          if (document.activeElement === document.body || document.activeElement === videoEl) {
-            e.preventDefault();
-            if (videoEl.paused) videoEl.play();
-            else videoEl.pause();
-          }
-        }
-      } else {
-        const cards = Array.from(channelsGrid.querySelectorAll(".channel-card"));
-        const activeIdx = cards.indexOf(document.activeElement);
-        if (activeIdx !== -1) {
-          const cols = Math.max(1, Math.floor(channelsGrid.offsetWidth / (cards[0].offsetWidth + 14)));
-          let targetIdx = -1;
-
-          if (e.key === "ArrowRight") targetIdx = Math.min(cards.length - 1, activeIdx + 1);
-          else if (e.key === "ArrowLeft") targetIdx = Math.max(0, activeIdx - 1);
-          else if (e.key === "ArrowDown") targetIdx = Math.min(cards.length - 1, activeIdx + cols);
-          else if (e.key === "ArrowUp") targetIdx = Math.max(0, activeIdx - cols);
-
-          if (targetIdx !== -1 && targetIdx !== activeIdx) {
-            e.preventDefault();
-            cards[targetIdx].focus();
-          }
-        }
-      }
-    });
-
-    loadChannels(false);
-  </script>
-</body>
-</html>
+  <!-- Modal Reproductor TV en Vivo -->
+  <div id="playerModal" class="player-modal" aria-hidden="true">
+    <div class="player-overlay-top">
+      <div>
+        <div id="npTitle" style="font-size:1.1rem; font-weight:800;">Canal</div>
+        <div id="npSub" style="font-size:0.8rem; color:var(--accent);">Conectando...</div>
+      </div>
+      <button id="btnClosePlayer" class="
